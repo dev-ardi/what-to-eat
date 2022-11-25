@@ -1,0 +1,4 @@
+# TODO
+
+## Performance
+- Compile SQLite
