@@ -1,0 +1,18 @@
+.card {
+  width: 100%;
+  vertical-align: middle;
+  margin: 9px;
+}
+.card > img {
+  width: inherit;
+  height: inherit;
+}
+.card_container {
+  width: 90vw;
+  height: 45vw;
+  display: flex;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
