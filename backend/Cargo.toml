@@ -9,3 +9,5 @@ edition = "2021"
 rand = "0.8.5"
 indexmap = "1.9.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
+actix = "0.13.0"
+tokio = { version = "1.22.0", features = ["full"] }

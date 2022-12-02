@@ -2,7 +2,7 @@
 - [x] create the frontend
 - [x] create sqlite db
 - [x] retrieve imgs from db
-- [ ] tests
+- [x] tests
 - [ ] Add acticx
 - [ ] create the endpoints
 - [ ] create business logic

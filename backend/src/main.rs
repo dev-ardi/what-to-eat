@@ -22,16 +22,21 @@ struct TransactionIndexMap<'a> {
 impl<'a> TransactionIndexMap<'a> {
     fn fetch_imgs(con: &Connection) -> IndexMap<i32, String> {
         let mut x = con.prepare("select rowid, * from imgs").unwrap();
-        x.query_map([], |x| {
-            Ok((x.get::<usize, i32>(0).unwrap() - 1, x.get(1).unwrap()))
-        })
-        .unwrap()
-        .into_iter()
-        .flatten()
-        .collect::<IndexMap<i32, String>>()
+        let ret = x
+            .query_map([], |x| {
+                Ok((x.get::<usize, i32>(0).unwrap() - 1, x.get(1).unwrap()))
+            })
+            .unwrap()
+            .into_iter()
+            .flatten()
+            .collect::<IndexMap<i32, String>>();
+        if ret.len() < LIMIT {
+            panic!("There aren't enough imgs!")
+        };
+        ret
     }
 
-    fn new(keys: &'a IndexMap<i32, String>) -> TransactionIndexMap {
+    fn new(keys: &'a IndexMap<i32, String>) -> Self {
         Self {
             used_keys: Vec::with_capacity(LIMIT),
             index: 0,
@@ -39,6 +44,9 @@ impl<'a> TransactionIndexMap<'a> {
             keys,
         }
     }
+    /// Get a new unused key.
+    ///
+    /// This assumes that keys is way bigger than LIMIT so that the time complexity approaches O(n)
     fn get_next(&mut self) -> Option<&'a str> {
         if self.index == LIMIT as u8 {
             return None;
@@ -47,13 +55,14 @@ impl<'a> TransactionIndexMap<'a> {
         loop {
             let i = rand::random::<usize>() % self.keys.len();
             if let Some(rand_key) = self.keys.get_index(i) {
-                if self.used_keys.contains(rand_key.0) {
-                    return Some(&(rand_key.1));
+                if !self.used_keys.contains(rand_key.0) {
+                    self.used_keys.push(rand_key.0.clone());
+                    return Some(rand_key.1);
                 }
             }
         }
     }
-    fn update(&mut self, position: bool) {}
+    fn update(&mut self, _position: bool) {}
 }
 
 #[cfg(test)]
@@ -94,7 +103,7 @@ mod tests {
         TransactionIndexMap::fetch_imgs(&con)
     }
 
-    // #[test]
+    #[test]
     fn imgs_are_retrieved_from_db() {
         let imgs = make_harness();
         assert_eq!(imgs.get_index(0).unwrap(), (&0, &"banana".to_string()));
@@ -110,7 +119,7 @@ mod tests {
 
         for _ in 0..crate::LIMIT {
             let next = t.get_next().unwrap();
-            assert!(unique.insert(&next), "Value should be unique and not panic");
+            assert!(unique.insert(next), "Value should be unique and not panic");
         }
         assert!(t.get_next().is_none(), "Transaction is full!");
     }
