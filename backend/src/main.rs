@@ -1,5 +1,36 @@
 use indexmap::{self, IndexMap};
 use rusqlite::{Connection, Result};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+
+#[get("/")]
+async fn render() -> impl Responder { // TODO route to nodejs
+    HttpResponse::Ok().body("Hello world!")
+}
+
+#[post("/getfirst")]
+async fn get_first() -> impl Responder {
+    HttpResponse::Ok()
+}
+#[post("/getnext")]
+async fn get_next() -> impl Responder
+{
+    HttpResponse::Ok()
+}
+
+#[actix_web::main]
+async fn actix_main() -> std::io::Result<()> {
+    HttpServer::new(|| {
+        App::new()
+
+        .service(render)
+        .service(get_first)
+        .service(get_next)
+    })
+    .bind(("localhost",8080))?
+    .run()
+    .await
+}
+
 //CONSTS
 const LIMIT: usize = 10;
 

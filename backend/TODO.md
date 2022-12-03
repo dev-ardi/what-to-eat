@@ -4,7 +4,7 @@
 - [x] retrieve imgs from db
 - [x] tests
 - [x] Add acticx
-- [ ] create the endpoints
+- [x] create the endpoints
 - [ ] create business logic
 - [ ] test
 - [ ] log transactions into db
