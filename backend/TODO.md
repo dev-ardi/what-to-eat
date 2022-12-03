@@ -3,7 +3,7 @@
 - [x] create sqlite db
 - [x] retrieve imgs from db
 - [x] tests
-- [ ] Add acticx
+- [x] Add acticx
 - [ ] create the endpoints
 - [ ] create business logic
 - [ ] test
