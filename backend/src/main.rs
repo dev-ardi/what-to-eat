@@ -1,9 +1,11 @@
 use indexmap::{self, IndexMap};
 use rusqlite::{Connection, Result};
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use std::collections::hash_map;
 
 #[get("/")]
 async fn render() -> impl Responder { // TODO route to nodejs
+    println!("/");
     HttpResponse::Ok().body("Hello world!")
 }
 
@@ -18,7 +20,11 @@ async fn get_next() -> impl Responder
 }
 
 #[actix_web::main]
-async fn actix_main() -> std::io::Result<()> {
+async fn main() -> std::io::Result<()> {
+    let con = Connection::open("./data.db").expect("couldn't connect to db");
+    let imgs = TransactionIndexMap::fetch_imgs(&con);
+
+    println!("Server running in localhost in port 8080");
     HttpServer::new(|| {
         App::new()
 
@@ -30,18 +36,9 @@ async fn actix_main() -> std::io::Result<()> {
     .run()
     .await
 }
-
 //CONSTS
 const LIMIT: usize = 10;
 
-fn main() -> Result<()> {
-    let con = Connection::open("./data.db")?;
-    let imgs = TransactionIndexMap::fetch_imgs(&con);
-    imgs.iter().for_each(|x| {
-        println!("{},{}", x.0, x.1);
-    });
-    Ok(())
-}
 
 struct TransactionIndexMap<'a> {
     used_keys: Vec<i32>,
