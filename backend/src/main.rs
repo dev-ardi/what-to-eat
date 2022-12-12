@@ -19,10 +19,9 @@ type State<'a> = RwLock<HashMap<TransID, Transaction<'a>>>;
 
 #[post("/getfirst/{TransID}")]
 async fn get_first<'a>(req: web::Path<TransID>, data: web::Data<State<'static>>) -> impl Responder {
-    if data.is_poisoned() {
-        // TODO recover
-        //data.clear_poison();
-    }
+    //if data.is_poisoned() {
+    //data.clear_poison();
+    //}
     let id = req.into_inner();
     let mut tr = Transaction::new(IMGS.get().unwrap());
 
@@ -34,16 +33,12 @@ async fn get_first<'a>(req: web::Path<TransID>, data: web::Data<State<'static>>)
         .expect("THREAD HOLDING DICTIONARY LOCK PANICKED")
         .insert(id, tr);
 
-
-    // remove unused transactions. > 20 mins is excessive. 
+    // remove unused transactions. > 20 mins is excessive.
     // This is still vulnerable to many kinds of DoS, what should I do?
-    rt::spawn(
-        async move {
-            rt::time::sleep(std::time::Duration::from_secs(20 * 60)).await; 
-            data.write().unwrap().remove(&id);
-        }
-        
-    );
+    rt::spawn(async move {
+        rt::time::sleep(std::time::Duration::from_secs(20 * 60)).await;
+        data.write().unwrap().remove(&id);
+    });
     HttpResponse::Ok().body(response.to_string())
 }
 
@@ -52,10 +47,9 @@ async fn get_next(
     req: web::Path<(TransID, u16)>,
     data: web::Data<State<'static>>,
 ) -> impl Responder {
-    if data.is_poisoned() {
-        // TODO recover
-        //data.clear_poison();
-    }
+    //if data.is_poisoned() {
+    //data.clear_poison();
+    //}
 
     let mut dict = data
         .write()
