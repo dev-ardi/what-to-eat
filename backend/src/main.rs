@@ -1,53 +1,117 @@
-use indexmap::{self, IndexMap};
-use rusqlite::{Connection, Result};
+use actix_web::rt;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use std::collections::hash_map;
+use indexmap::{self, IndexMap};
+use json::object;
+use once_cell::sync::OnceCell;
+use rusqlite::Connection;
+use std::collections::HashMap;
+use std::sync::RwLock;
 
 #[get("/")]
-async fn render() -> impl Responder { // TODO route to nodejs
+async fn render() -> impl Responder {
+    // TODO route to nodejs
     println!("/");
     HttpResponse::Ok().body("Hello world!")
 }
 
-#[post("/getfirst")]
-async fn get_first() -> impl Responder {
-    HttpResponse::Ok()
-}
-#[post("/getnext")]
-async fn get_next() -> impl Responder
-{
-    HttpResponse::Ok()
+type TransID = i64;
+type State<'a> = RwLock<HashMap<TransID, Transaction<'a>>>;
+
+#[post("/getfirst/{TransID}")]
+async fn get_first<'a>(req: web::Path<TransID>, data: web::Data<State<'static>>) -> impl Responder {
+    if data.is_poisoned() {
+        // TODO recover
+        //data.clear_poison();
+    }
+    let id = req.into_inner();
+    let mut tr = Transaction::new(IMGS.get().unwrap());
+
+    let response = object! {
+        "img1" : tr.get_next().unwrap(), // can't fail
+        "img2" : tr.get_next().unwrap()  // can't fail
+    };
+    data.write()
+        .expect("THREAD HOLDING DICTIONARY LOCK PANICKED")
+        .insert(id, tr);
+
+
+    // remove unused transactions. > 20 mins is excessive. 
+    // This is still vulnerable to many kinds of DoS, what should I do?
+    rt::spawn(
+        async move {
+            rt::time::sleep(std::time::Duration::from_secs(20 * 60)).await; 
+            data.write().unwrap().remove(&id);
+        }
+        
+    );
+    HttpResponse::Ok().body(response.to_string())
 }
 
+#[post("/getnext/{TransID}/{index}")]
+async fn get_next(
+    req: web::Path<(TransID, u16)>,
+    data: web::Data<State<'static>>,
+) -> impl Responder {
+    if data.is_poisoned() {
+        // TODO recover
+        //data.clear_poison();
+    }
+
+    let mut dict = data
+        .write()
+        .expect("THREAD HOLDING DICTIONARY LOCK PANICKED");
+
+    let body;
+    match dict.get_mut(&req.0) {
+        None => return HttpResponse::BadRequest().body("Transaction ID not found"),
+        Some(tr) => {
+            tr.update(req.1);
+            match tr.get_next() {
+                None => {
+                    tr.end();
+                    dict.remove(&req.0);
+                    body = object! {"done": true}
+                }
+                Some(obj) => body = object! {"img": obj.to_string()},
+            }
+        }
+    }
+
+    HttpResponse::Ok().body(body.to_string())
+}
+
+static IMGS: OnceCell<IndexMap<i32, String>> = OnceCell::new();
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let con = Connection::open("./data.db").expect("couldn't connect to db");
-    let imgs = TransactionIndexMap::fetch_imgs(&con);
+    IMGS.set(Transaction::fetch_imgs(&con)).unwrap();
 
     println!("Server running in localhost in port 8080");
-    HttpServer::new(|| {
-        App::new()
 
-        .service(render)
-        .service(get_first)
-        .service(get_next)
+    let register: State = RwLock::new(HashMap::new());
+    let state = web::Data::new(register);
+    HttpServer::new(move || {
+        App::new()
+            .app_data(state.clone())
+            .service(render)
+            .service(get_first)
+            .service(get_next)
     })
-    .bind(("localhost",8080))?
+    .bind(("localhost", 8080))?
     .run()
     .await
 }
 //CONSTS
 const LIMIT: usize = 10;
 
-
-struct TransactionIndexMap<'a> {
+struct Transaction<'a> {
     used_keys: Vec<i32>,
     index: u8,
     history: u16, //bitfield
     keys: &'a IndexMap<i32, String>,
 }
 
-impl<'a> TransactionIndexMap<'a> {
+impl<'a> Transaction<'a> {
     fn fetch_imgs(con: &Connection) -> IndexMap<i32, String> {
         let mut x = con.prepare("select rowid, * from imgs").unwrap();
         let ret = x
@@ -74,30 +138,36 @@ impl<'a> TransactionIndexMap<'a> {
     }
     /// Get a new unused key.
     ///
-    /// This assumes that keys is way bigger than LIMIT so that the time complexity approaches O(n)
+    /// This assumes that keys is way bigger than LIMIT so that the time complexity approaches O(1)
     fn get_next(&mut self) -> Option<&'a str> {
         if self.index == LIMIT as u8 {
             return None;
         }
-        self.index += 1;
         loop {
             let i = rand::random::<usize>() % self.keys.len();
             if let Some(rand_key) = self.keys.get_index(i) {
                 if !self.used_keys.contains(rand_key.0) {
-                    self.used_keys.push(rand_key.0.clone());
+                    self.used_keys.push(*rand_key.0);
                     return Some(rand_key.1);
                 }
             }
         }
     }
-    fn update(&mut self, _position: bool) {}
+    fn update(&mut self, position: u16) {
+        dbg!(self.index);
+        self.history |= (position as u16) << self.index;
+        self.index += 1;
+    }
+    fn end(&self) {
+        dbg!(self.history, &self.used_keys);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
-    use crate::TransactionIndexMap;
+    use crate::Transaction;
     use indexmap::IndexMap;
     use rusqlite::Connection;
 
@@ -128,7 +198,7 @@ mod tests {
         ",
         )
         .unwrap();
-        TransactionIndexMap::fetch_imgs(&con)
+        Transaction::fetch_imgs(&con)
     }
 
     #[test]
@@ -142,7 +212,7 @@ mod tests {
     fn transaction_is_unique_and_ends_with_none() {
         let map = make_harness();
 
-        let mut t = TransactionIndexMap::new(&map);
+        let mut t = Transaction::new(&map);
         let mut unique: HashSet<&str> = HashSet::new();
 
         for _ in 0..crate::LIMIT {
