@@ -59,7 +59,7 @@ async fn get_next(
     match dict.get_mut(&req.0) {
         None => return HttpResponse::BadRequest().body("Transaction ID not found"),
         Some(tr) => {
-            tr.update(req.1);
+            tr.update(req.1.into());
             match tr.get_next() {
                 None => {
                     tr.end();
@@ -96,12 +96,13 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 //CONSTS
-const LIMIT: usize = 10;
+const LIMIT: usize = 25;
+type history_t  = u32;
 
 struct Transaction<'a> {
     used_keys: Vec<i32>,
     index: u8,
-    history: u16, //bitfield
+    history: history_t, //bitfield
     keys: &'a IndexMap<i32, String>,
 }
 
@@ -147,9 +148,9 @@ impl<'a> Transaction<'a> {
             }
         }
     }
-    fn update(&mut self, position: u16) {
+    fn update(&mut self, position: history_t) {
         dbg!(self.index);
-        self.history |= (position as u16) << self.index;
+        self.history |= position << self.index;
         self.index += 1;
     }
     fn end(&self) {
