@@ -38,12 +38,12 @@ function criticalError(e: string) {
 
 async function fetchJson(url: string): Promise<any> {
 	console.log(url);
-	let res = await fetch(`http://localhost:8080/${url}`, {
+	let res = await fetch(`https://food-chooser.com/${url}`, {
 		method: "POST",
 		mode: "cors",
 	});
 	console.log("2");
-	if (res.status >= 400) criticalError(await res.text());
+	if (!res.ok) criticalError(await res.text());
 	return res.json();
 }
 

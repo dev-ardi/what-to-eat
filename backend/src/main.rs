@@ -7,13 +7,6 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-#[get("/")]
-async fn render() -> impl Responder {
-    // TODO route to nodejs
-    println!("/");
-    HttpResponse::Ok().body("Hello world!")
-}
-
 type TransID = i64;
 type State<'a> = RwLock<HashMap<TransID, Transaction<'a>>>;
 
@@ -80,18 +73,17 @@ async fn main() -> std::io::Result<()> {
     let con = Connection::open("./data.db").expect("couldn't connect to db");
     IMGS.set(Transaction::fetch_imgs(&con)).unwrap();
 
-    println!("Server running in localhost in port 8080");
+    println!("Server running in localhost in port 8081");
 
     let register: State = RwLock::new(HashMap::new());
     let state = web::Data::new(register);
     HttpServer::new(move || {
         App::new()
             .app_data(state.clone())
-            .service(render)
             .service(get_first)
             .service(get_next)
     })
-    .bind(("localhost", 8080))?
+    .bind(("localhost", 8081))?
     .run()
     .await
 }
@@ -168,7 +160,7 @@ mod tests {
 
     fn make_harness() -> IndexMap<i32, String> {
         let con = Connection::open_in_memory().unwrap();
-        con.execute_batch(
+        con.execute_batch( // TODO add more!
             "
         CREATE TABLE imgs(url text);
         INSERT INTO imgs VALUES ('banana');
