@@ -1,6 +1,6 @@
 {
-  "name": "what_to_eat",
-  "version": "0.2.0",
+  "name": "food-chooser",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

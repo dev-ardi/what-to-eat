@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import Head from "next/head";
 import React from "react";
 import { requestFirstImage } from "./food_card";
@@ -6,30 +6,54 @@ import Food_Card from "./food_card";
 import Header from "./_header";
 import { useAsync } from "react-async-hook";
 
-export  default function Index() {
+export  default function Index() {	
+	return( <App/>)
+}
+function App(){
+
 	const x = useAsync(requestFirstImage, []);
 	return (
-		<div>
+		<>
 			<Head_ />
 			<Header />
 		{
 			x.loading ? null : 
-			<Box className="card_container">
+			<div className="card_container">
+			<Typography
+						id="hint"
+						variant="h5"
+						component="h1"
+						sx={{
+							display: "flex",
+							fontFamily: "sans-serif",
+							fontWeight: 600,
+							color: "white",
+							textAlign: "center",
+							whiteSpace: "break-spaces",
+							justifyContent: "center",
+						}}
+			>
+			Click the one you prefer
+			</Typography>
+
+				<Box sx={{display: "flex", 
+				
+							justifyContent: "center",
+				width: "100%", height: "100%"
+			}}>
+
 		<Food_Card img={x.result![0]} number={0} />
 		<Food_Card img={x.result![1]} number={1} />
-	</Box>
+				</Box>
+	</div>
 	}	
-		</div>
+		</>
 	);
 }
-
-function CardContainer(img1: string, img2: string) {
-}
-
 function Head_() {
 	return (
 		<Head>
-			<title>What to eat? - easily find out what to eat today</title>
+			<title>Food chooser - easily find out what to eat today</title>
 			<meta
 				name="viewport"
 				content="initial-scale=1, width=device-width"
